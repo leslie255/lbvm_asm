@@ -1,6 +1,7 @@
 module Main where
 
 import Parser
+import System.Environment (getArgs)
 import System.IO
 import Token
 
@@ -25,7 +26,12 @@ printParsed s = case parseLines (lexerNew s) [] of
 
 main :: IO ()
 main = do
-  handle <- openFile "test.txt" ReadMode
-  contents <- hGetContents handle
-  printParsed contents
-  hClose handle
+  args <- getArgs
+  if length args > 0
+    then do
+      handle <- openFile (args !! 0) ReadMode
+      contents <- hGetContents handle
+      printParsed contents
+      hClose handle
+    else
+      putStrLn "Expect at one argument"
