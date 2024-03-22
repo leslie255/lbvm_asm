@@ -15,7 +15,7 @@ instance Show Item where
   show (Inst inst) = show inst
   show (Label name) = show name ++ ":"
 
-data ParseErrorKind = ContainsUnknownChar Char | UnknownIdent String | InvalidOperands | InvalidOplen String | InvalidRegName String | InvalidVmemFlag String | InvalidCondFlag String | JumpOffsetTooLarge Word64
+data ParseErrorKind = ContainsUnknownChar Char | UnknownIdent String | InvalidOperands | InvalidOplen String | InvalidRegName String | InvalidVmemFlag String | InvalidCondFlag String | JumpOffsetTooLarge Word64 | InvalidLibcCallcode String
 
 instance Show ParseErrorKind where
   show (ContainsUnknownChar c) = "(ContainsUnknownChar " ++ show c ++ ")"
@@ -26,6 +26,7 @@ instance Show ParseErrorKind where
   show (InvalidVmemFlag s) = "(InvalidVmemFlag " ++ show s ++ ")"
   show (InvalidCondFlag s) = "(InvalidCondFlag " ++ show s ++ ")"
   show (JumpOffsetTooLarge x) = "(JumpOffsetTooLarge " ++ show x ++ ")"
+  show (InvalidLibcCallcode x) = "(InvalidLibcCallcode " ++ show x ++ ")"
 
 data ParseError = ParseError
   { errorKind :: ParseErrorKind,
@@ -195,7 +196,12 @@ parseInst "pop" [Ident oplen, Ident src] line = do
   let inst = Inst.makeSmallInst (Opcode.pop + oplen') src' 0 0 0 0
   Right (Inst (Inst.Small inst))
 parseInst "pop" _ line = Left (makeError InvalidOperands line)
-parseInst "libc_call" _ _ = error "TODO"
+parseInst "libc_call" [Ident callcode] line = do
+  callcode' <- parseLibcCallcode callcode line
+  let inst = Inst.makeSmallInst (Opcode.libc_call) 0 0 0 0 callcode'
+  Right (Inst (Inst.Small inst))
+parseInst "libc_call" _ line = Left (makeError InvalidOperands line)
+parseInst "breakpoint" _ line = Left (makeError InvalidOperands line)
 parseInst "breakpoint" [] _ = Right (Inst (Inst.Small (Inst.makeSmallInst Opcode.ret 0 0 0 0 0)))
 parseInst "breakpoint" _ line = Left (makeError InvalidOperands line)
 parseInst x _ line = Left (makeError (UnknownIdent x) line)
@@ -275,3 +281,29 @@ parseReg x line = Left (makeError (InvalidRegName x) line)
 parseJumpOffset :: Word64 -> Int -> Either ParseError Word16
 parseJumpOffset x _ | x <= fromIntegral (maxBound :: Word16) = Right (fromIntegral x)
 parseJumpOffset x line = Left (makeError (JumpOffsetTooLarge x) line)
+
+parseLibcCallcode :: String -> Int -> Either ParseError Word8
+parseLibcCallcode "exit" _ = Right 255
+parseLibcCallcode "malloc" _ = Right 1
+parseLibcCallcode "realloc" _ = Right 2
+parseLibcCallcode "free" _ = Right 3
+parseLibcCallcode "fwrite" _ = Right 4
+parseLibcCallcode "fread" _ = Right 5
+parseLibcCallcode "printf" _ = Right 6
+parseLibcCallcode "fprintf" _ = Right 7
+parseLibcCallcode "scanf" _ = Right 8
+parseLibcCallcode "fscanf" _ = Right 9
+parseLibcCallcode "puts" _ = Right 10
+parseLibcCallcode "fputs" _ = Right 11
+parseLibcCallcode "snprintf" _ = Right 12
+parseLibcCallcode "fopen" _ = Right 13
+parseLibcCallcode "fclose" _ = Right 14
+parseLibcCallcode "memcpy" _ = Right 15
+parseLibcCallcode "memmove" _ = Right 16
+parseLibcCallcode "memset" _ = Right 17
+parseLibcCallcode "bzero" _ = Right 18
+parseLibcCallcode "strlen" _ = Right 19
+parseLibcCallcode "strcpy" _ = Right 20
+parseLibcCallcode "strcat" _ = Right 21
+parseLibcCallcode "strcmp" _ = Right 22
+parseLibcCallcode x l = Left (makeError (InvalidLibcCallcode x) l)
