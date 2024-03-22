@@ -1,0 +1,3 @@
+main:
+brk
+store_ind word r0, sp, vmem, -10
