@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
+{-# LANGUAGE BinaryLiterals #-}
 module Inst.Opcode where
 
 import Data.Word
@@ -7,7 +8,26 @@ import Prelude hiding (not, or, and, mod, div)
 import Text.Printf (printf)
 
 make_opcode :: Word8 -> Word8
-make_opcode x = (x .<<. 2) .&. 0xFC -- 0xFC = 0b11111100
+make_opcode x = (x .<<. 2) .&. 0b11111100
+
+condflagN     = 0b00000001 :: Word8
+condflagZ     = 0b00000010 :: Word8
+condflagC     = 0b00000100 :: Word8
+condflagV     = 0b00001000 :: Word8
+condflagE     = 0b00010000 :: Word8
+condflagG     = 0b00100000 :: Word8
+condflagL     = 0b01000000 :: Word8
+condflagGE    = (condflagG  .|. condflagE)
+condflagLE    = (condflagL  .|. condflagE)
+condflagNN    = (condflagN  .|. 0b10000000)
+condflagNZ    = (condflagZ  .|. 0b10000000)
+condflagNC    = (condflagC  .|. 0b10000000)
+condflagNV    = (condflagV  .|. 0b10000000)
+condflagNE    = (condflagE  .|. 0b10000000)
+condflagNG    = (condflagG  .|. 0b10000000)
+condflagNL    = (condflagL  .|. 0b10000000)
+condflagNGE   = (condflagGE .|. 0b10000000)
+condflagNLE   = (condflagLE .|. 0b10000000)
 
 qword = 0 :: Word8
 dword = 1 :: Word8
@@ -58,48 +78,48 @@ native_call = make_opcode(40)
 breakpoint  = 0xFC :: Word8
 
 showOpcode :: Word8 -> String
-showOpcode opcode | (opcode .&. 0xFC) == brk         = "brk " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == cbrk        = "cbrk " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == nop         = "nop " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == load_imm    = "load_imm " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == load_dir    = "load_dir " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == load_ind    = "load_ind " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == store_imm   = "store_imm " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == store_dir   = "store_dir " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == store_ind   = "store_ind " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == mov         = "mov " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == cmp         = "cmp " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == csel        = "csel " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == b           = "b " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == j           = "j " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == add         = "add " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == sub         = "sub " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == mul         = "mul " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == div         = "div " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == mod         = "mod " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == iadd        = "iadd " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == isub        = "isub " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == imul        = "imul " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == idiv        = "idiv " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == imod        = "imod " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == fadd        = "fadd " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == fsub        = "fsub " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == fmul        = "fmul " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == fdiv        = "fdiv " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == fmod        = "fmod " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == and         = "and " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == or          = "or " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == xor         = "xor " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == not         = "not " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == muladd      = "muladd " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == call        = "call " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == ccall       = "ccall " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == ret         = "ret " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == push        = "push " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == pop         = "pop " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == libc_call   = "libc_call " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == native_call = "native_call " ++ showOplen(opcode .&. 0x03)
-showOpcode opcode | (opcode .&. 0xFC) == breakpoint  = "breakpoint " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == brk         = "brk " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == cbrk        = "cbrk " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == nop         = "nop " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == load_imm    = "load_imm " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == load_dir    = "load_dir " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == load_ind    = "load_ind " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == store_imm   = "store_imm " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == store_dir   = "store_dir " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == store_ind   = "store_ind " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == mov         = "mov " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == cmp         = "cmp " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == csel        = "csel " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == b           = "b " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == j           = "j " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == add         = "add " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == sub         = "sub " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == mul         = "mul " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == div         = "div " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == mod         = "mod " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == iadd        = "iadd " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == isub        = "isub " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == imul        = "imul " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == idiv        = "idiv " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == imod        = "imod " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == fadd        = "fadd " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == fsub        = "fsub " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == fmul        = "fmul " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == fdiv        = "fdiv " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == fmod        = "fmod " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == and         = "and " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == or          = "or " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == xor         = "xor " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == not         = "not " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == muladd      = "muladd " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == call        = "call " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == ccall       = "ccall " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == ret         = "ret " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == push        = "push " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == pop         = "pop " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == libc_call   = "libc_call " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == native_call = "native_call " ++ showOplen(opcode .&. 0x03)
+showOpcode opcode | (opcode .&. 0b11111100) == breakpoint  = "breakpoint " ++ showOplen(opcode .&. 0x03)
 showOpcode x = (printf "(unknown 0x%02X)" x)
 
 showOplen :: Word8 -> String

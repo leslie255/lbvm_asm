@@ -18,12 +18,14 @@ parseLines lexer items = case lexerNextLine lexer [] of
     Left e -> Left (items, e)
   Nothing -> Right items
 
+printParsed :: String -> IO ()
+printParsed s = case parseLines (lexerNew s) [] of
+  Left x -> print x
+  Right x -> print x
+
 main :: IO ()
 main = do
   handle <- openFile "test.txt" ReadMode
   contents <- hGetContents handle
-  let lexer = lexerNew contents
-  case parseLines lexer [] of
-    Left x -> print x
-    Right x -> print x
+  printParsed contents
   hClose handle
