@@ -1,4 +1,2 @@
 start:
-  store_imm byte r0, vmem, 1000
-  b start, z
-  ret
+  muladd byte, r0, r1, r2, r3
