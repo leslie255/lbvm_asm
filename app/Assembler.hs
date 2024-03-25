@@ -11,6 +11,9 @@ import Inst.Inst (BigInst (imm), Inst, JumpInst (offset))
 import qualified Inst.Inst as Inst
 import Parser (Item (..), instOf, symbolOf)
 
+pcInit :: Word64
+pcInit = 32768
+
 data AssembleError = UndefinedSymbol String
   deriving (Show)
 
@@ -58,8 +61,12 @@ appendInst assembler inst' =
 feedItem :: Assembler -> Item -> IO Assembler
 feedItem assembler (Inst inst') = assembler `appendInst` inst'
 feedItem assembler (Label symbol) = do
-  let symbols' = Map.insert symbol (addrCounter assembler) (symbols assembler)
-  return assembler {symbols = symbols'}
+  let assembler' =
+        if symbol == "start"
+          then assembler {addrCounter = pcInit}
+          else assembler
+  let symbols' = Map.insert symbol (addrCounter assembler) (symbols assembler')
+  return assembler' {symbols = symbols'}
 feedItem assembler (WithSymbol symboled') = do
   let instIdx' = length $ insts assembler
   assembler' <- appendInst assembler $ instOf symboled'
