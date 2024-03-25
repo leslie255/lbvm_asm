@@ -50,7 +50,7 @@ main = do
       contents <- hGetContents handle
       assembledInsts <- assembleAll (lexerNew contents) assemblerNew
       print assembledInsts
-      print $ emitCArray assembledInsts
+      putStrLn $ emitCArray assembledInsts
       hClose handle
     else
       putStrLn "Expect at one argument"

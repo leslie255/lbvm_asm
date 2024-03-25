@@ -28,14 +28,16 @@ lexerNextLine lexer' tokens = case lexerNext lexer' of
     [] -> lexerNextLine lexer'' (tokens) -- empty line
     tokens' -> Just (lexer'', (lineCount lexer'', tokens'))
   Just (lexer'', token) -> lexerNextLine lexer'' (tokens ++ [token])
-  Nothing | length tokens == 0 -> Nothing
-  Nothing -> Just (lexer', (lineCount lexer', tokens))
+  Nothing -> case tokens of
+    [] -> Nothing
+    tokens' -> Just (lexer', (lineCount lexer', tokens'))
 
 lexerNext :: Lexer -> Maybe (Lexer, Token)
 lexerNext Lexer {source = ""} = Nothing
 lexerNext lexer@Lexer {source = (',' : s)} = Just (lexer {source = s}, Comma)
 lexerNext lexer@Lexer {source = (':' : s)} = Just (lexer {source = s}, Colon)
 lexerNext lexer@Lexer {source = ('+' : s)} = Just (lexer {source = s}, Plus)
+lexerNext lexer@Lexer {source = (';' : s)} = skipComment lexer {source = s}
 lexerNext lexer@Lexer {source = ('\n' : s)} = Just (lexer {lineCount = lineCount lexer + 1, source = s}, Newline)
 lexerNext lexer@Lexer {source = (c : s)} | isSpace c = lexerNext $ lexer {source = s}
 lexerNext lexer@Lexer {source = (c : s)}
@@ -48,6 +50,11 @@ lexerNext lexer@Lexer {source = (c : s)}
     (numStr, s') = takeFor (\c' -> isNumber c') [c] s
     num = read numStr
 lexerNext lexer@Lexer {source = (c : s)} = Just (lexer {source = s}, UnknownChar c)
+
+skipComment :: Lexer -> Maybe (Lexer, Token)
+skipComment lexer@Lexer {source = ('\n' : s)} = Just (lexer {source = s}, Newline)
+skipComment lexer@Lexer {source = (_ : s)} = skipComment lexer {source = s}
+skipComment Lexer {source = []} = Nothing
 
 takeFor :: (a -> Bool) -> [a] -> [a] -> ([a], [a])
 takeFor _ xs [] = (xs, [])

@@ -132,6 +132,12 @@ parseInst "cmp" [Ident oplen, Ident lhs, Comma, Ident rhs] line = do
   rhs' <- parseReg rhs line
   Right $ Inst $ Inst.Small $ Inst.makeSmallInst (Opcode.cmp + oplen') lhs' rhs' 0 0 0
 parseInst "cmp" _ line = Left (ParseError InvalidOperands line)
+parseInst "fcmp" [Ident oplen, Ident lhs, Comma, Ident rhs] line = do
+  oplen' <- parseOplen oplen line
+  lhs' <- parseReg lhs line
+  rhs' <- parseReg rhs line
+  Right $ Inst $ Inst.Small $ Inst.makeSmallInst (Opcode.fcmp + oplen') lhs' rhs' 0 0 0
+parseInst "fcmp" _ line = Left (ParseError InvalidOperands line)
 parseInst "csel" (Ident oplen : Ident dest : Comma : Ident lhs : Comma : Ident rhs : Comma : condflags) line = do
   oplen' <- parseOplen oplen line
   dest' <- parseReg dest line
@@ -169,16 +175,30 @@ parseInst "fsub" tokens line = parseArithmeticInst Opcode.fsub tokens line
 parseInst "fmul" tokens line = parseArithmeticInst Opcode.fmul tokens line
 parseInst "fdiv" tokens line = parseArithmeticInst Opcode.fdiv tokens line
 parseInst "fmod" tokens line = parseArithmeticInst Opcode.fmod tokens line
+parseInst "ineg" [Ident oplen, Ident dest, Comma, Ident lhs] line = do
+  oplen' <- parseOplen oplen line
+  dest' <- parseReg dest line
+  lhs' <- parseReg lhs line
+  Right $ Inst $ Inst.Small $ Inst.makeSmallInst (Opcode.ineg + oplen') dest' lhs' 0 0 0
+parseInst "ineg" _ line = Left $ ParseError (InvalidOperands) line
+parseInst "fneg" [Ident oplen, Ident dest, Comma, Ident lhs] line = do
+  oplen' <- parseOplen oplen line
+  dest' <- parseReg dest line
+  lhs' <- parseReg lhs line
+  Right $ Inst $ Inst.Small $ Inst.makeSmallInst (Opcode.fneg + oplen') dest' lhs' 0 0 0
+parseInst "fneg" _ line = Left $ ParseError (InvalidOperands) line
+parseInst "shl" tokens line = parseArithmeticInst Opcode.shl tokens line
+parseInst "shr" tokens line = parseArithmeticInst Opcode.shr tokens line
 parseInst "and" tokens line = parseArithmeticInst Opcode.and tokens line
 parseInst "or" tokens line = parseArithmeticInst Opcode.or tokens line
 parseInst "xor" tokens line = parseArithmeticInst Opcode.xor tokens line
-parseInst "not" [Ident oplen, Comma, Ident dest, Comma, Ident lhs] line = do
+parseInst "not" [Ident oplen, Ident dest, Comma, Ident lhs] line = do
   oplen' <- parseOplen oplen line
   dest' <- parseReg dest line
   lhs' <- parseReg lhs line
   Right $ Inst $ Inst.Small $ Inst.makeSmallInst (Opcode.not + oplen') dest' lhs' 0 0 0
-parseInst "not" _ line = Left (ParseError (InvalidOperands) line)
-parseInst "muladd" [Ident oplen, Comma, Ident dest, Comma, Ident lhs, Comma, Ident rhs, Comma, Ident rhs2] line = do
+parseInst "not" _ line = Left $ ParseError (InvalidOperands) line
+parseInst "muladd" [Ident oplen, Ident dest, Comma, Ident lhs, Comma, Ident rhs, Comma, Ident rhs2] line = do
   oplen' <- parseOplen oplen line
   dest' <- parseReg dest line
   lhs' <- parseReg lhs line
@@ -216,13 +236,12 @@ parseInst "libc_call" [Ident callcode] line = do
   callcode' <- parseLibcCallcode callcode line
   Right $ Inst $ Inst.Small $ Inst.makeSmallInst (Opcode.libc_call) 0 0 0 0 callcode'
 parseInst "libc_call" _ line = Left $ ParseError InvalidOperands line
-parseInst "breakpoint" _ line = Left $ ParseError InvalidOperands line
-parseInst "breakpoint" [] _ = Right $ Inst $ Inst.Small $ Inst.makeSmallInst Opcode.ret 0 0 0 0 0
+parseInst "breakpoint" [] _ = Right $ Inst $ Inst.Small $ Inst.makeSmallInst Opcode.breakpoint 0 0 0 0 0
 parseInst "breakpoint" _ line = Left $ ParseError InvalidOperands line
 parseInst x _ line = Left $ ParseError (UnknownIdent x) line
 
 parseArithmeticInst :: Word8 -> [Token] -> Int -> Either ParseError Item
-parseArithmeticInst opcode [Ident oplen, Comma, Ident dest, Comma, Ident lhs, Comma, Ident rhs] line = do
+parseArithmeticInst opcode [Ident oplen, Ident dest, Comma, Ident lhs, Comma, Ident rhs] line = do
   oplen' <- parseOplen oplen line
   dest' <- parseReg dest line
   lhs' <- parseReg lhs line
