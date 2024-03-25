@@ -1,5 +1,8 @@
 module Main where
 
+import Assembler
+import Data.Vector (Vector)
+import Inst.Inst (Inst)
 import Parser
 import System.Environment (getArgs)
 import System.IO
@@ -24,6 +27,20 @@ printParsed s = case parseLines (lexerNew s) [] of
   Left x -> print x
   Right x -> print x
 
+assembleAll :: Lexer -> Assembler -> IO (Vector Inst)
+assembleAll lexer assembler = case lexerNextLine lexer [] of
+  Just (lexer', (line, tokens)) -> do
+    let item = case parseLine tokens line of
+          Right item' -> item'
+          Left e -> error $ show e
+    assembler' <- assembler `feedItem` item
+    assembleAll lexer' assembler'
+  Nothing -> do
+    assembleResult <- finish assembler
+    case assembleResult of
+      Right insts' -> return insts'
+      Left e -> error $ show e
+
 main :: IO ()
 main = do
   args <- getArgs
@@ -31,7 +48,8 @@ main = do
     then do
       handle <- openFile (args !! 0) ReadMode
       contents <- hGetContents handle
-      printParsed contents
+      assembledInsts <- assembleAll (lexerNew contents) assemblerNew
+      print assembledInsts
       hClose handle
     else
       putStrLn "Expect at one argument"

@@ -9,8 +9,6 @@ import Text.Printf (printf)
 
 data Inst = Small SmallInst | Jump JumpInst | Big BigInst
 
-data InstCategory = Small' | Jump' | Big'
-
 class AnyInst a where
   opcode :: a -> Word8
   flags :: a -> Word8
@@ -104,15 +102,15 @@ instance InstWithReg BigInst where
 instance Show SmallInst where
   show inst =
     "("
-      ++ (Opcode.showOpcode (opcode inst))
+      ++ Opcode.showOpcode (opcode inst)
       ++ " "
-      ++ (Reg.showReg (reg0 inst))
+      ++ Reg.showReg (reg0 inst)
       ++ ","
-      ++ (Reg.showReg (reg1 inst))
+      ++ Reg.showReg (reg1 inst)
       ++ ","
-      ++ (Reg.showReg (reg2 inst))
+      ++ Reg.showReg (reg2 inst)
       ++ ","
-      ++ (Reg.showReg (reg3 inst))
+      ++ Reg.showReg (reg3 inst)
       ++ ",0b"
       ++ showIntAtBase 2 intToDigit (flags inst) ""
       ++ ")"
@@ -120,8 +118,8 @@ instance Show SmallInst where
 instance Show JumpInst where
   show inst =
     "("
-      ++ (Opcode.showOpcode (opcode inst))
-      ++ (printf " 0x%04X" (offset inst))
+      ++ Opcode.showOpcode (opcode inst)
+      ++ printf " 0x%04X" (offset inst)
       ++ ",0b"
       ++ showIntAtBase 2 intToDigit (flags inst) ""
       ++ ")"
@@ -129,66 +127,21 @@ instance Show JumpInst where
 instance Show BigInst where
   show inst =
     "("
-      ++ (Opcode.showOpcode (opcode inst))
+      ++ Opcode.showOpcode (opcode inst)
       ++ " "
-      ++ (Reg.showReg (reg0 inst))
+      ++ Reg.showReg (reg0 inst)
       ++ ","
-      ++ (Reg.showReg (reg1 inst))
+      ++ Reg.showReg (reg1 inst)
       ++ ","
-      ++ (Reg.showReg (reg2 inst))
+      ++ Reg.showReg (reg2 inst)
       ++ ","
-      ++ (Reg.showReg (reg3 inst))
+      ++ Reg.showReg (reg3 inst)
       ++ ",0b"
       ++ showIntAtBase 2 intToDigit (flags inst) ""
-      ++ (printf ",0x%016X)" (imm inst))
+      ++ printf ",0x%016X)" (imm inst)
       ++ ")"
 
 instance Show Inst where
   show (Small inst) = show inst
   show (Jump inst) = show inst
   show (Big inst) = show inst
-
-instCategory :: Word8 -> Maybe Inst.Inst.InstCategory
-instCategory x | x == Opcode.brk = Just Small'
-instCategory x | x == Opcode.cbrk = Just Small'
-instCategory x | x == Opcode.nop = Just Small'
-instCategory x | x == Opcode.load_imm = Just Big'
-instCategory x | x == Opcode.load_dir = Just Big'
-instCategory x | x == Opcode.load_ind = Just Big'
-instCategory x | x == Opcode.store_imm = Just Big'
-instCategory x | x == Opcode.store_dir = Just Small'
-instCategory x | x == Opcode.store_ind = Just Big'
-instCategory x | x == Opcode.mov = Just Small'
-instCategory x | x == Opcode.cmp = Just Small'
-instCategory x | x == Opcode.csel = Just Small'
-instCategory x | x == Opcode.b = Just Jump'
-instCategory x | x == Opcode.j = Just Jump'
-instCategory x | x == Opcode.add = Just Small'
-instCategory x | x == Opcode.sub = Just Small'
-instCategory x | x == Opcode.mul = Just Small'
-instCategory x | x == Opcode.div = Just Small'
-instCategory x | x == Opcode.mod = Just Small'
-instCategory x | x == Opcode.iadd = Just Small'
-instCategory x | x == Opcode.isub = Just Small'
-instCategory x | x == Opcode.imul = Just Small'
-instCategory x | x == Opcode.idiv = Just Small'
-instCategory x | x == Opcode.imod = Just Small'
-instCategory x | x == Opcode.fadd = Just Small'
-instCategory x | x == Opcode.fsub = Just Small'
-instCategory x | x == Opcode.fmul = Just Small'
-instCategory x | x == Opcode.fdiv = Just Small'
-instCategory x | x == Opcode.fmod = Just Small'
-instCategory x | x == Opcode.and = Just Small'
-instCategory x | x == Opcode.or = Just Small'
-instCategory x | x == Opcode.xor = Just Small'
-instCategory x | x == Opcode.not = Just Small'
-instCategory x | x == Opcode.muladd = Just Small'
-instCategory x | x == Opcode.call = Just Jump'
-instCategory x | x == Opcode.ccall = Just Jump'
-instCategory x | x == Opcode.ret = Just Small'
-instCategory x | x == Opcode.push = Just Small'
-instCategory x | x == Opcode.pop = Just Small'
-instCategory x | x == Opcode.libc_call = Just Small'
-instCategory x | x == Opcode.native_call = Just Big'
-instCategory x | x == Opcode.breakpoint = Just Small'
-instCategory _ = Nothing
