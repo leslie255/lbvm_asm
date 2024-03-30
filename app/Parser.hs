@@ -47,10 +47,10 @@ instance Show ParseError where
 
 parseLine :: [Token] -> Int -> Either ParseError Item
 parseLine [] _ = error "parseLine recieves empty line"
-parseLine (UnknownChar c : _) line = Left (ParseError (ContainsUnknownChar c) line)
-parseLine [Ident ident, Colon] _ = Right (Label ident)
+parseLine (UnknownChar c : _) line = Left $ ParseError (ContainsUnknownChar c) line
+parseLine [Ident ident, Colon] _ = Right $ Label ident
 parseLine (Ident ident : tokens) line = parseInst ident tokens line
-parseLine _ _ = error "TODO"
+parseLine _ line = Left $ ParseError InvalidSyntax line
 
 parseInst :: String -> [Token] -> Int -> Either ParseError Item
 parseInst "brk" [] _ = Right $ Inst $ Inst.Small (Inst.makeSmallInst Opcode.brk 0 0 0 0 0)
