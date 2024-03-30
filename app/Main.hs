@@ -1,7 +1,7 @@
 module Main where
 
 import Assembler
-import Data.Vector (Vector)
+import Data.Vector (Vector, forM_)
 import Inst.Inst (Inst)
 import Parser
 import System.Environment (getArgs)
@@ -10,47 +10,74 @@ import Token
 
 printTokenLines :: Lexer -> IO ()
 printTokenLines lexer = case lexerNextLine lexer [] of
-  Just (lexer', (line, tokens)) -> do
+  Just (lexer', (line, Right tokens)) -> do
     putStrLn ("line" ++ show line ++ ":" ++ show tokens)
+    printTokenLines lexer'
+  Just (lexer', (line, Left e)) -> do
+    putStrLn ("line" ++ show line ++ ":" ++ show e)
     printTokenLines lexer'
   Nothing -> putStrLn "EOF"
 
-parseLines :: Lexer -> [Item] -> Either ([Item], ParseError) [Item]
+-- Errors on parser or lexer error
+parseLines :: Lexer -> [Item] -> [Item]
 parseLines lexer items = case lexerNextLine lexer [] of
-  Just (lexer', (line, tokens)) -> case parseLine tokens line of
+  Just (lexer', (line, Right tokens)) -> case parseLine tokens line of
     Right item -> parseLines lexer' (items ++ [item])
-    Left e -> Left (items, e)
-  Nothing -> Right items
+    Left e -> error $ show e
+  Just (_, (line, Left e)) -> error $ show e ++ "@" ++ show line
+  Nothing -> items
 
-printParsed :: String -> IO ()
-printParsed s = case parseLines (lexerNew s) [] of
-  Left x -> print x
-  Right x -> print x
-
-assembleAll :: Lexer -> Assembler -> IO (Vector Inst)
-assembleAll lexer assembler = case lexerNextLine lexer [] of
-  Just (lexer', (line, tokens)) -> do
+-- Errors on parser or lexer error
+assembleAll :: Assembler -> Lexer -> IO (Vector Inst)
+assembleAll assembler lexer = case lexerNextLine lexer [] of
+  Just (lexer', (line, Right tokens)) -> do
     let item = case parseLine tokens line of
           Right item' -> item'
           Left e -> error $ show e
     assembler' <- assembler `feedItem` item
-    assembleAll lexer' assembler'
+    assembleAll assembler' lexer'
+  Just (_', (line, Left e)) -> error $ show e ++ "@" ++ show line
   Nothing -> do
     assembleResult <- finish assembler
     case assembleResult of
       Right insts' -> return insts'
       Left e -> error $ show e
 
+data Settings = Settings
+  { file :: Maybe String,
+    dbg :: Bool
+  }
+  deriving (Show)
+
+settingsDefault :: Settings
+settingsDefault =
+  Settings
+    { file = Nothing,
+      dbg = False
+    }
+
+readArgs :: IO Settings
+readArgs = do
+  args <- getArgs
+  return $ readArgsInner settingsDefault args
+
+readArgsInner :: Settings -> [String] -> Settings
+readArgsInner settings ("--dbg" : args) = readArgsInner settings {dbg = True} args
+readArgsInner settings@Settings {file = Nothing} (file' : args) = readArgsInner settings {file = Just file'} args
+readArgsInner settings [] = settings
+readArgsInner Settings {file = Just _} _ = error "multiple source files are not supported"
+
 main :: IO ()
 main = do
-  args <- getArgs
-  if length args > 0
-    then do
-      handle <- openFile (args !! 0) ReadMode
+  settings <- readArgs
+  case file settings of
+    Nothing -> putStrLn "Expect input file name"
+    Just file' -> do
+      handle <- openFile file' ReadMode
       contents <- hGetContents handle
-      assembledInsts <- assembleAll (lexerNew contents) assemblerNew
-      print assembledInsts
-      putStrLn $ emitCArray assembledInsts
+      assembledInsts <- assembleAll assemblerNew $ lexerNew contents
       hClose handle
-    else
-      putStrLn "Expect at one argument"
+      if dbg settings
+        then forM_ assembledInsts (\inst -> print inst)
+        else return ()
+      putStrLn $ emitCArray assembledInsts

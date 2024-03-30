@@ -138,7 +138,7 @@ instance Show BigInst where
       ++ Reg.showReg (reg3 inst)
       ++ ",0b"
       ++ showIntAtBase 2 intToDigit (flags inst) ""
-      ++ printf ",0x%016X)" (imm inst)
+      ++ printf ",0x%016X" (imm inst)
       ++ ")"
 
 instance Show Inst where

@@ -1,18 +1,59 @@
-; r10: height
-; r11: M_PI
-; r12: radius
+; r13: email (cstring)
+; r12: i
+; r11: sizeof(email)
 
 start:
-  ; conjugate height if negative
-  mov       qword r1, r10        ; r1 = height
-  xor       qword r0, r0, r0     ; r0 = 0
-  fsub      qword r2, r0, r1     ; r2 = 0 - height
-  fadd      qword r13, r0, r1    ; r13 = 0 + height
-  csel      qword r9, r1, r2, nn ; r9 = height > 0 ? height : -height
+	; r0: c
+	; r1: cond
+	; r2: tmp cond
+	; r3: tmp for compare
+	; r4: tmp for masking status
 
-  ; r0 = radius * radius * M_PI * height
-  fmul      qword r0, r12, r12
-  fmul      qword r0, r0, r11
-  fmul      qword r0, r0, r9
+	; c = email[i]
+	add		qword r0, r13, r12
+	load_dir	byte r0, r0, real
 
-  brk
+	breakpoint
+
+	load_imm	byte r4, 0b00010000
+
+	; cond = (c == 'a')
+	load_imm	byte r3, 97		; 97 == 'a'
+	cmp		byte r0, r3
+	mov		byte r1, status
+	and		byte r1, r1, r4
+
+	; cond |= (c == 'e')
+	load_imm	byte r3, 101		; 101 == 'e'
+	cmp		byte r0, r3
+	mov		byte r2, status
+	and		byte r2, r2, r4
+	or		byte r1, r1, r2
+
+	; cond |= (c == 'i')
+	load_imm	byte r3, 105		; 105 == 'i'
+	cmp		byte r0, r3
+	breakpoint
+	mov		byte r2, status
+	and		byte r2, r2, r4
+	or		byte r1, r1, r2
+
+	breakpoint
+
+	; cond |= (c == 'o')
+	load_imm	byte r3, 111		; 111 == 'o'
+	cmp		byte r0, r3
+	mov		byte r2, status
+	and		byte r2, r2, r4
+	or		byte r1, r1, r2
+
+	; cond |= (c == 'u')
+	load_imm	byte r3, 117		; 117 == 'u'
+	cmp		byte r0, r3
+	mov		byte r2, status
+	and		byte r2, r2, r4
+	or		byte r1, r1, r2
+
+	breakpoint
+
+	brk
