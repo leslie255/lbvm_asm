@@ -18,20 +18,20 @@ start:
 	load_imm	byte r4, 0b00010000
 
 	; cond = (c == 'a')
-	load_imm	byte r3, 97		; 97 == 'a'
+	load_imm	byte r3, 'a'
 	cmp		byte r0, r3
 	mov		byte r1, status
 	and		byte r1, r1, r4
 
 	; cond |= (c == 'e')
-	load_imm	byte r3, 101		; 101 == 'e'
+	load_imm	byte r3, 'e'
 	cmp		byte r0, r3
 	mov		byte r2, status
 	and		byte r2, r2, r4
 	or		byte r1, r1, r2
 
 	; cond |= (c == 'i')
-	load_imm	byte r3, 105		; 105 == 'i'
+	load_imm	byte r3, 'i'
 	cmp		byte r0, r3
 	breakpoint
 	mov		byte r2, status
@@ -41,14 +41,14 @@ start:
 	breakpoint
 
 	; cond |= (c == 'o')
-	load_imm	byte r3, 111		; 111 == 'o'
+	load_imm	byte r3, 'o'
 	cmp		byte r0, r3
 	mov		byte r2, status
 	and		byte r2, r2, r4
 	or		byte r1, r1, r2
 
 	; cond |= (c == 'u')
-	load_imm	byte r3, 117		; 117 == 'u'
+	load_imm	byte r3, 'u'
 	cmp		byte r0, r3
 	mov		byte r2, status
 	and		byte r2, r2, r4

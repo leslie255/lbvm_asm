@@ -35,16 +35,22 @@ lexerNext lexer@Lexer {source = (':' : s)} = Just (lexer {source = s}, Right Col
 lexerNext lexer@Lexer {source = ('+' : s)} = Just (lexer {source = s}, Right Plus)
 lexerNext lexer@Lexer {source = (';' : s)} = skipComment lexer {source = s}
 lexerNext lexer@Lexer {source = ('\n' : s)} = Just (lexer {lineCount = lineCount lexer + 1, source = s}, Right Newline)
+lexerNext lexer@Lexer {source = ('\'' : '\\' : '\\' : '\'' : s)} = Just (lexer {source = s}, Right $ Num $ fromIntegral $ fromEnum '\\')
+lexerNext lexer@Lexer {source = ('\'' : '\\' : '\'' : '\'' : s)} = Just (lexer {source = s}, Right $ Num $ fromIntegral $ fromEnum '\'')
+lexerNext lexer@Lexer {source = ('\'' : '\\' : '\"' : '\'' : s)} = Just (lexer {source = s}, Right $ Num $ fromIntegral $ fromEnum '\"')
+lexerNext lexer@Lexer {source = ('\'' : '\\' : '\n' : '\'' : s)} = Just (lexer {source = s}, Right $ Num $ fromIntegral $ fromEnum '\n')
+lexerNext lexer@Lexer {source = ('\'' : '\\' : '\t' : '\'' : s)} = Just (lexer {source = s}, Right $ Num $ fromIntegral $ fromEnum '\t')
+lexerNext lexer@Lexer {source = ('\'' : c : '\'' : s)} = Just (lexer {source = s}, Right $ Num $ fromIntegral $ fromEnum c)
 lexerNext lexer@Lexer {source = (c : s)}
   | isSpace c = lexerNext $ lexer {source = s}
   | isAlpha c || c == '_' =
       let (ident, s') = takeFor (\c' -> isAlphaNum c' || c' == '_') [c] s
        in Just (lexer {source = s'}, Right $ Ident ident)
-  | isNumber c || c == '-' = do
+  | isNumber c || c == '-' =
       let (numStr, s') = takeFor (\c' -> isAlphaNum c') [c] s
-      case parseNumber numStr of
-        Right num -> Just (lexer {source = s'}, Right $ Num num)
-        Left e -> Just (lexer {source = s'}, Left e)
+       in case parseNumber numStr of
+            Right num -> Just (lexer {source = s'}, Right $ Num num)
+            Left e -> Just (lexer {source = s'}, Left e)
 lexerNext lexer@Lexer {source = (c : s)} = Just (lexer {source = s}, Right $ UnknownChar c)
 
 parseNumber :: String -> Either LexerError Word64
