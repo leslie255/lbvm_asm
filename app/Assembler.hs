@@ -210,7 +210,7 @@ emitAsStr assembled =
     emitByteAsChar 13 = "\\r"
     emitByteAsChar 34 = "\\\""
     emitByteAsChar 92 = "\\\""
-    emitByteAsChar x | x >= 32 && x <= 126 && not (x >= 48 && x <= 57) && not (x >= 64 && x <= 70) && not (x >= 97 && x <= 102) = (printf "%c" x)
+    emitByteAsChar x | x >= 32 && x <= 126 && not (x >= 48 && x <= 57) && not (x >= 65 && x <= 70) && not (x >= 97 && x <= 102) = (printf "%c" x)
     emitByteAsChar x = (printf "\\x%02X" x)
 
 emitAsDecArr :: AssembledProgram -> String
