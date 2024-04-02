@@ -2,8 +2,6 @@ module Main where
 
 import Assembler
 import Data.List (isSuffixOf)
-import Data.Vector (Vector, forM_)
-import Inst.Inst (Inst)
 import Parser
 import System.Directory (doesDirectoryExist, doesFileExist)
 import System.Environment (getArgs)
@@ -36,7 +34,7 @@ parseLines lexer items = case lexerNextLine lexer [] of
   Nothing -> return items
 
 -- Errors on parser or lexer error
-assembleAll :: Assembler -> Lexer -> IO (Vector Inst)
+assembleAll :: Assembler -> Lexer -> IO AssembledProgram
 assembleAll assembler lexer = case lexerNextLine lexer [] of
   Just (lexer', (line, Right tokens)) ->
     case parseLine tokens line of
@@ -48,7 +46,7 @@ assembleAll assembler lexer = case lexerNextLine lexer [] of
   Nothing -> do
     assembleResult <- finish assembler
     case assembleResult of
-      Right insts' -> return insts'
+      Right assembled' -> return assembled'
       Left e -> errorAndExit $ show e
 
 data Settings = Settings
@@ -76,11 +74,10 @@ readArgsInner :: Settings -> [String] -> IO Settings
 readArgsInner settings ("--dbg" : args) = readArgsInner settings {dbg = True} args
 readArgsInner settings@Settings {file = Nothing} (file' : args) = readArgsInner settings {file = Just file'} args
 readArgsInner Settings {file = Just file'} (arg : _) -- guess where the error is
-  | arg == "dbg" || file' == "dbg" || arg == "-dbg" || file' == "-dbg" = errorAndExit "did you mean `--dbg`?"
   | mightBeSourceFile arg && mightBeSourceFile file' = errorAndExit "multiple source files are not supported"
-  | mightBeSourceFile arg = errorAndExit $ "invalid argument " ++ show file'
-  | mightBeSourceFile file' = errorAndExit $ "invalid argument " ++ show arg
-  | True = error $ "invalid argument" ++ arg
+  | mightBeSourceFile arg = errorAndExit $ "invalid argument " ++ show file' ++ " (multiple source files are not supported)"
+  | mightBeSourceFile file' = errorAndExit $ "invalid argument " ++ show arg ++ " (multiple source files are not supported)"
+  | True = error $ "invalid argument " ++ show arg ++ " (multiple source files are not supported)"
 readArgsInner settings [] = return settings
 
 validateInputFile :: String -> IO ()
@@ -103,9 +100,6 @@ main = do
       validateInputFile file'
       handle <- openFile file' ReadMode
       contents <- hGetContents handle
-      assembledInsts <- assembleAll assemblerNew $ lexerNew contents
+      assembled <- assembleAll assemblerNew $ lexerNew contents
       hClose handle
-      if dbg settings
-        then forM_ assembledInsts (\inst -> print inst)
-        else return ()
-      putStrLn $ emitCArray assembledInsts
+      putStrLn $ emitAsDecArr assembled

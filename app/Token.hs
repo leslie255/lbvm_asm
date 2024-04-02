@@ -3,16 +3,17 @@ module Token where
 import Data.Char (isAlpha, isAlphaNum, isNumber, isSpace)
 import Data.Word
 
-data LexerError = InvalidNumberLiteral | InvalidCharLiteral
+data LexerError = InvalidNumberLiteral | InvalidCharLiteral | UnknownChar Char
   deriving (Show)
 
-data Token = UnknownChar Char | Ident String | Num Word64 | Comma | Colon | Plus | Newline
-  deriving (Show)
+data Token = Ident String | Num Word64 | Str String | Comma | Colon | Plus | Newline
+  deriving (Show, Eq)
 
 data Lexer = Lexer
   { lineCount :: Int,
     source :: String
   }
+  deriving (Show)
 
 lexerNew :: String -> Lexer
 lexerNew source' = Lexer {lineCount = 0, source = source'}
@@ -20,7 +21,7 @@ lexerNew source' = Lexer {lineCount = 0, source = source'}
 lexerNextLine :: Lexer -> [Token] -> Maybe (Lexer, (Int, Either LexerError [Token]))
 lexerNextLine lexer' tokens = case lexerNext lexer' of
   Just (lexer'', Right Newline) -> case tokens of
-    [] -> lexerNextLine lexer'' (tokens) -- empty line
+    [] -> lexerNextLine lexer'' {lineCount = lineCount lexer'' + 1} (tokens) -- empty line
     tokens' -> Just (lexer'', (lineCount lexer'', Right tokens'))
   Just (lexer'', Right token) -> lexerNextLine lexer'' (tokens ++ [token])
   Just (lexer'', Left e) -> Just (lexer'', (lineCount lexer'', Left e))
@@ -35,11 +36,17 @@ lexerNext lexer@Lexer {source = (':' : s)} = Just (lexer {source = s}, Right Col
 lexerNext lexer@Lexer {source = ('+' : s)} = Just (lexer {source = s}, Right Plus)
 lexerNext lexer@Lexer {source = (';' : s)} = skipComment lexer {source = s}
 lexerNext lexer@Lexer {source = ('\n' : s)} = Just (lexer {lineCount = lineCount lexer + 1, source = s}, Right Newline)
+lexerNext lexer@Lexer {source = ('\"' : s)} =
+  case parseStringLiteral s of
+    Right (s', literal) -> Just (lexer {source = s'}, Right $ Str literal)
+    Left e -> Just (lexer, Left e)
 lexerNext lexer@Lexer {source = ('\'' : '\\' : '\\' : '\'' : s)} = Just (lexer {source = s}, Right $ Num $ fromIntegral $ fromEnum '\\')
 lexerNext lexer@Lexer {source = ('\'' : '\\' : '\'' : '\'' : s)} = Just (lexer {source = s}, Right $ Num $ fromIntegral $ fromEnum '\'')
 lexerNext lexer@Lexer {source = ('\'' : '\\' : '\"' : '\'' : s)} = Just (lexer {source = s}, Right $ Num $ fromIntegral $ fromEnum '\"')
-lexerNext lexer@Lexer {source = ('\'' : '\\' : '\n' : '\'' : s)} = Just (lexer {source = s}, Right $ Num $ fromIntegral $ fromEnum '\n')
-lexerNext lexer@Lexer {source = ('\'' : '\\' : '\t' : '\'' : s)} = Just (lexer {source = s}, Right $ Num $ fromIntegral $ fromEnum '\t')
+lexerNext lexer@Lexer {source = ('\'' : '\\' : 'n' : '\'' : s)} = Just (lexer {source = s}, Right $ Num $ fromIntegral $ fromEnum '\n')
+lexerNext lexer@Lexer {source = ('\'' : '\\' : 't' : '\'' : s)} = Just (lexer {source = s}, Right $ Num $ fromIntegral $ fromEnum '\t')
+lexerNext lexer@Lexer {source = ('\'' : '\\' : 'r' : '\'' : s)} = Just (lexer {source = s}, Right $ Num $ fromIntegral $ fromEnum '\r')
+lexerNext lexer@Lexer {source = ('\'' : '\\' : '0' : '\'' : s)} = Just (lexer {source = s}, Right $ Num $ fromIntegral $ fromEnum '\0')
 lexerNext lexer@Lexer {source = ('\'' : c : '\'' : s)} = Just (lexer {source = s}, Right $ Num $ fromIntegral $ fromEnum c)
 lexerNext lexer@Lexer {source = (c : s)}
   | isSpace c = lexerNext $ lexer {source = s}
@@ -51,9 +58,27 @@ lexerNext lexer@Lexer {source = (c : s)}
        in case parseNumber numStr of
             Right num -> Just (lexer {source = s'}, Right $ Num num)
             Left e -> Just (lexer {source = s'}, Left e)
-lexerNext lexer@Lexer {source = (c : s)} = Just (lexer {source = s}, Right $ UnknownChar c)
+lexerNext lexer@Lexer {source = (c : s)} = Just (lexer {source = s}, Left $ UnknownChar c)
+
+parseStringLiteral :: String -> Either LexerError (String, String)
+parseStringLiteral s' = parseStringLiteralInner s' ""
+  where
+    parseStringLiteralInner :: String -> String -> Either LexerError (String, String)
+    parseStringLiteralInner ('\"' : s) literal = Right (s, literal)
+    parseStringLiteralInner ('\\' : '\\' : s) literal = parseStringLiteralInner s $ literal ++ ['\\']
+    parseStringLiteralInner ('\\' : '\"' : s) literal = parseStringLiteralInner s $ literal ++ ['\"']
+    parseStringLiteralInner ('\\' : '\'' : s) literal = parseStringLiteralInner s $ literal ++ ['\'']
+    parseStringLiteralInner ('\\' : 'n' : s) literal = parseStringLiteralInner s $ literal ++ ['\n']
+    parseStringLiteralInner ('\\' : 't' : s) literal = parseStringLiteralInner s $ literal ++ ['\t']
+    parseStringLiteralInner ('\\' : 'r' : s) literal = parseStringLiteralInner s $ literal ++ ['\r']
+    parseStringLiteralInner ('\\' : '0' : s) literal = parseStringLiteralInner s $ literal ++ ['\0']
+    parseStringLiteralInner (c : s) literal = parseStringLiteralInner s $ literal ++ [c]
+    parseStringLiteralInner _ _ = error "TODO"
 
 parseNumber :: String -> Either LexerError Word64
+parseNumber ('-' : s) = do
+  n <- parseNumber s
+  Right $ -n
 parseNumber ('0' : 'x' : s) = parseHexNumber s 0
 parseNumber ('0' : 'd' : s) | all isNumber s = Right $ read s
 parseNumber ('0' : 'o' : s) = parseOctNumber s 0

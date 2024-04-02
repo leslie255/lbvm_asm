@@ -3,6 +3,9 @@
 module Parser where
 
 import Data.Bits ((.|.))
+import qualified Data.ByteString as BS
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as TE
 import Data.Word
 import Inst.Inst (Inst)
 import qualified Inst.Inst as Inst
@@ -10,11 +13,14 @@ import qualified Inst.Opcode as Opcode
 import qualified Inst.Reg as Reg
 import Token
 
-data Item = Inst Inst | Label String | WithSymbol SymboledInst
+data Item = Inst Inst | WithSymbol SymboledInst | Label String | Segment Segment | Bytes [Word8]
   deriving (Show)
 
 data SymboledInst = SymboledJump (Inst.JumpInst, String) | SymboledBig (Inst.BigInst, String)
   deriving (Show)
+
+data Segment = Text | Data
+  deriving (Show, Eq)
 
 symbolOf :: SymboledInst -> String
 symbolOf (SymboledJump (_, x)) = x
@@ -35,6 +41,9 @@ data ParseErrorKind
   | InvalidCondFlag
   | JumpOffsetTooLarge Word64
   | InvalidLibcCallcode String
+  | InvalidSegmentName String
+  | InvalidByteLiteral
+  | NumTooLarge
   deriving (Show)
 
 data ParseError = ParseError
@@ -47,10 +56,31 @@ instance Show ParseError where
 
 parseLine :: [Token] -> Int -> Either ParseError Item
 parseLine [] _ = error "parseLine recieves empty line"
-parseLine (UnknownChar c : _) line = Left $ ParseError (ContainsUnknownChar c) line
+parseLine [Ident "segment", Ident "text"] _ = Right $ Segment Text
+parseLine [Ident "segment", Ident "data"] _ = Right $ Segment Data
+parseLine (Ident "bytes" : tokens) line = parseBytes tokens line
+parseLine [Ident "segment", Ident s] line = Left $ ParseError (InvalidSegmentName s) line
 parseLine [Ident ident, Colon] _ = Right $ Label ident
 parseLine (Ident ident : tokens) line = parseInst ident tokens line
 parseLine _ line = Left $ ParseError InvalidSyntax line
+
+parseBytes :: [Token] -> Int -> Either ParseError Item
+parseBytes tokens line' = do
+  bytes <- parseBytesInner tokens line' []
+  Right $ Bytes bytes
+  where
+    parseBytesInner :: [Token] -> Int -> [Word8] -> Either ParseError [Word8]
+    parseBytesInner (t@(Num _) : Comma : ts) line bytes = parseBytesInner (t : ts) line bytes
+    parseBytesInner (Num n : ts) line bytes
+      | n <= fromIntegral (maxBound :: Word8) =
+          parseBytesInner ts line $ bytes ++ [fromIntegral n]
+    parseBytesInner (Num _ : _) line _ = Left $ ParseError (NumTooLarge) line
+    parseBytesInner (t@(Str _) : Comma : ts) line bytes = parseBytesInner (t : ts) line bytes
+    parseBytesInner (Str s : ts) line bytes =
+      let byteString = BS.unpack $ TE.encodeUtf8 $ T.pack s
+       in parseBytesInner ts line (bytes ++ byteString)
+    parseBytesInner [] _ bytes = Right bytes
+    parseBytesInner _ line _ = Left $ ParseError (InvalidByteLiteral) line
 
 parseInst :: String -> [Token] -> Int -> Either ParseError Item
 parseInst "brk" [] _ = Right $ Inst $ Inst.Small (Inst.makeSmallInst Opcode.brk 0 0 0 0 0)
@@ -146,7 +176,7 @@ parseInst "csel" (Ident oplen : Ident dest : Comma : Ident lhs : Comma : Ident r
   condflags' <- parseCondFlags condflags line
   Right $ Inst $ Inst.Small $ Inst.makeSmallInst (Opcode.csel + oplen') dest' lhs' rhs' 0 condflags'
 parseInst "csel" _ line = Left (ParseError InvalidOperands line)
-parseInst "b" (Num offset : condflags) line = do
+parseInst "b" (Num offset : Comma : condflags) line = do
   offset' <- parseJumpOffset offset line
   condflags' <- parseCondFlags condflags line
   Right $ Inst $ Inst.Jump $ Inst.makeJumpInst Opcode.b offset' condflags'
@@ -236,6 +266,12 @@ parseInst "libc_call" [Ident callcode] line = do
   callcode' <- parseLibcCallcode callcode line
   Right $ Inst $ Inst.Small $ Inst.makeSmallInst (Opcode.libc_call) 0 0 0 0 callcode'
 parseInst "libc_call" _ line = Left $ ParseError InvalidOperands line
+parseInst "native_call" _ line = error $ "Not implemented: native_call instruction (@line" ++ show line ++ ")"
+parseInst "vtoreal" [Ident dest, Comma, Ident src] line = do
+  dest' <- parseReg dest line
+  src' <- parseReg src line
+  Right $ Inst $ Inst.Small $ Inst.makeSmallInst (Opcode.vtoreal) src' dest' 0 0 0
+parseInst "vtoreal" _ line = Left $ ParseError InvalidOperands line
 parseInst "breakpoint" [] _ = Right $ Inst $ Inst.Small $ Inst.makeSmallInst Opcode.breakpoint 0 0 0 0 0
 parseInst "breakpoint" _ line = Left $ ParseError InvalidOperands line
 parseInst x _ line = Left $ ParseError (UnknownIdent x) line
@@ -286,10 +322,10 @@ parseVMemFlag "real" _ = Right 1
 parseVMemFlag x line = Left $ ParseError (InvalidVmemFlag x) line
 
 parseOplen :: String -> Int -> Either ParseError Word8
-parseOplen "qword" _ = Right Opcode.qword
-parseOplen "dword" _ = Right Opcode.dword
-parseOplen "word" _ = Right Opcode.word
-parseOplen "byte" _ = Right Opcode.byte
+parseOplen "q" _ = Right Opcode.qword
+parseOplen "d" _ = Right Opcode.dword
+parseOplen "w" _ = Right Opcode.word
+parseOplen "b" _ = Right Opcode.byte
 parseOplen x line = Left $ ParseError (InvalidOplen x) line
 
 parseReg :: String -> Int -> Either ParseError Word8

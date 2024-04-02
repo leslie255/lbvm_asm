@@ -80,6 +80,7 @@ push        = makeOpcode(42)
 pop         = makeOpcode(43)
 libc_call   = makeOpcode(44)
 native_call = makeOpcode(45)
+vtoreal     = makeOpcode(46)
 breakpoint  = 0b11111100
 
 showOpcode :: Word8 -> String
@@ -131,6 +132,7 @@ showOpcode opcode = let oplen = opcode .&. 0b00000011 in
       x | x == pop         -> "pop "         ++ showOplen(oplen)
       x | x == libc_call   -> "libc_call "   ++ showOplen(oplen)
       x | x == native_call -> "native_call " ++ showOplen(oplen)
+      x | x == vtoreal     -> "rtoreal "     ++ showOplen(oplen)
       x | x == breakpoint  -> "breakpoint "  ++ showOplen(oplen)
       x -> (printf "(unknown 0x%02X)" x)
 
