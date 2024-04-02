@@ -7,7 +7,7 @@ import System.Directory (doesDirectoryExist, doesFileExist)
 import System.Environment (getArgs)
 import System.Exit
 import System.IO
-import Token
+import Token hiding (Str)
 
 errorAndExit :: String -> IO a
 errorAndExit s = do
@@ -51,7 +51,8 @@ assembleAll assembler lexer = case lexerNextLine lexer [] of
 
 data Settings = Settings
   { file :: Maybe String,
-    dbg :: Bool
+    dbg :: Bool,
+    emitmode :: EmitMode
   }
   deriving (Show)
 
@@ -59,26 +60,39 @@ settingsDefault :: Settings
 settingsDefault =
   Settings
     { file = Nothing,
-      dbg = False
+      dbg = False,
+      emitmode = ArrDec
     }
 
 readArgs :: IO Settings
 readArgs = do
   args <- getArgs
   readArgsInner settingsDefault args
+  where
+    readArgsInner :: Settings -> [String] -> IO Settings
+    readArgsInner settings ("--dbg" : args) = readArgsInner settings {dbg = True} args
+    readArgsInner settings ("--emit" : emitmode' : args) = do
+      emitmode'' <- readEmitMode emitmode'
+      readArgsInner settings {emitmode = emitmode''} args
+    readArgsInner _ ["--emit"] = do
+      errorAndExit $ "invalid options: expect emit mode after `--emit`"
+    readArgsInner settings@Settings {file = Nothing} (file' : args) = readArgsInner settings {file = Just file'} args
+    readArgsInner Settings {file = Just file'} (arg : _) -- guess where the error is
+      | mightBeSourceFile arg && mightBeSourceFile file' = errorAndExit "multiple source files are not supported"
+      | mightBeSourceFile arg = errorAndExit $ "invalid argument " ++ show file' ++ " (multiple source files are not supported)"
+      | mightBeSourceFile file' = errorAndExit $ "invalid argument " ++ show arg ++ " (multiple source files are not supported)"
+      | True = error $ "invalid argument " ++ show arg ++ " (multiple source files are not supported)"
+    readArgsInner settings [] = return settings
+
+readEmitMode :: String -> IO EmitMode
+readEmitMode s
+  | "arrdec" <- s = return ArrDec
+  | "arrhex" <- s = return ArrHex
+  | "str" <- s = return Str
+  | _ <- s = errorAndExit $ "invalid emit mode: " ++ show s ++ " (arrdec, arrhex, str)"
 
 mightBeSourceFile :: String -> Bool
 mightBeSourceFile s = (".asm" `isSuffixOf` s) || (".s" `isSuffixOf` s)
-
-readArgsInner :: Settings -> [String] -> IO Settings
-readArgsInner settings ("--dbg" : args) = readArgsInner settings {dbg = True} args
-readArgsInner settings@Settings {file = Nothing} (file' : args) = readArgsInner settings {file = Just file'} args
-readArgsInner Settings {file = Just file'} (arg : _) -- guess where the error is
-  | mightBeSourceFile arg && mightBeSourceFile file' = errorAndExit "multiple source files are not supported"
-  | mightBeSourceFile arg = errorAndExit $ "invalid argument " ++ show file' ++ " (multiple source files are not supported)"
-  | mightBeSourceFile file' = errorAndExit $ "invalid argument " ++ show arg ++ " (multiple source files are not supported)"
-  | True = error $ "invalid argument " ++ show arg ++ " (multiple source files are not supported)"
-readArgsInner settings [] = return settings
 
 validateInputFile :: String -> IO ()
 validateInputFile path = do
@@ -102,4 +116,4 @@ main = do
       contents <- hGetContents handle
       assembled <- assembleAll assemblerNew $ lexerNew contents
       hClose handle
-      putStrLn $ emitAsStr assembled
+      putStrLn $ emit assembled (emitmode settings)

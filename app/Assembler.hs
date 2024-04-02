@@ -44,6 +44,9 @@ data AssembledProgram = AssembledProgram
   }
   deriving (Show)
 
+data EmitMode = ArrDec | ArrHex | Str
+  deriving (Show, Eq)
+
 currentSegment :: Assembler -> Segment
 currentSegment Assembler {addrCounter = addrCounter'}
   | 0x10000 <= addrCounter' && addrCounter' < 0x20000 = Text
@@ -239,3 +242,8 @@ emitAsHexArr assembled =
   where
     emitAsHexArrInner :: V.Vector Word8 -> String -> String
     emitAsHexArrInner bytes' s = foldl (++) s (map (\x -> (printf "0x%02X," x)) (V.toList bytes'))
+
+emit :: AssembledProgram -> EmitMode -> String
+emit assembled ArrDec = emitAsDecArr assembled
+emit assembled ArrHex = emitAsHexArr assembled
+emit assembled Str = emitAsStr assembled
