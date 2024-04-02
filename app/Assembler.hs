@@ -195,7 +195,20 @@ emitAsStr assembled =
     ++ "memcpy(vmem_data, data_segment, sizeof(data_segment));\n"
   where
     emitAsStrInner :: V.Vector Word8 -> String -> String
-    emitAsStrInner bytes' s = foldl (++) s (map (\x -> (printf "\\x%02X" x)) (V.toList bytes'))
+    emitAsStrInner bytes' s = foldl (++) s (map emitByteAsChar (V.toList bytes'))
+    emitByteAsChar :: Word8 -> String
+    emitByteAsChar 0 = "\\0"
+    emitByteAsChar 7 = "\\a"
+    emitByteAsChar 8 = "\\b"
+    emitByteAsChar 9 = "\\t"
+    emitByteAsChar 10 = "\\n"
+    emitByteAsChar 11 = "\\v"
+    emitByteAsChar 12 = "\\f"
+    emitByteAsChar 13 = "\\r"
+    emitByteAsChar 34 = "\\\""
+    emitByteAsChar 92 = "\\\""
+    emitByteAsChar x | x >= 32 && x <= 126 && not (x >= 48 && x <= 57) && not (x >= 64 && x <= 70) && not (x >= 97 && x <= 102) = (printf "%c" x)
+    emitByteAsChar x = (printf "\\x%02X" x)
 
 emitAsDecArr :: AssembledProgram -> String
 emitAsDecArr assembled =

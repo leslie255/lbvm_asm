@@ -102,4 +102,4 @@ main = do
       contents <- hGetContents handle
       assembled <- assembleAll assemblerNew $ lexerNew contents
       hClose handle
-      putStrLn $ emitAsDecArr assembled
+      putStrLn $ emitAsStr assembled
