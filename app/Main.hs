@@ -64,18 +64,27 @@ settingsDefault =
       emitmode = ArrDec
     }
 
+printHelp :: IO ()
+printHelp = do
+  putStrLn "Usage: lbvm_asm [OPTIONS] [SOURCE PATH]"
+  putStrLn "Options:"
+  putStrLn "  --help             show this message"
+  putStrLn "  --emit [EMIT MODE] emit mode (arrdec, arrhex, str)"
+  return ()
+
 readArgs :: IO Settings
 readArgs = do
   args <- getArgs
   readArgsInner settingsDefault args
   where
     readArgsInner :: Settings -> [String] -> IO Settings
+    readArgsInner _ ("--help" : _) = printHelp >>= return exitSuccess
     readArgsInner settings ("--dbg" : args) = readArgsInner settings {dbg = True} args
     readArgsInner settings ("--emit" : emitmode' : args) = do
       emitmode'' <- readEmitMode emitmode'
       readArgsInner settings {emitmode = emitmode''} args
     readArgsInner _ ["--emit"] = do
-      errorAndExit $ "invalid options: expect emit mode after `--emit`"
+      errorAndExit $ "invalid options: expect emit mode (arrdec, arrhex, str) after `--emit`"
     readArgsInner settings@Settings {file = Nothing} (file' : args) = readArgsInner settings {file = Just file'} args
     readArgsInner Settings {file = Just file'} (arg : _) -- guess where the error is
       | mightBeSourceFile arg && mightBeSourceFile file' = errorAndExit "multiple source files are not supported"
