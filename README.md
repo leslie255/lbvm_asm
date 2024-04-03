@@ -4,10 +4,9 @@
 
 This is my first attempt at writing Haskell so be kind to me.
 
-Usage:
-
 ```
-cabal run exes -- file.s
+Usage: lbvm_asm [OPTIONS] [SOURCE PATH]
+Options:
+  --help             show this message
+  --emit [EMIT MODE] emit mode (arrdec, arrhex, str)
 ```
-
-Would print out a C array of numbers, load it into your C project and run it in LBVM.
