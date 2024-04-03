@@ -1,8 +1,7 @@
 module Assembler where
 
--- import qualified Data.Vector.Unboxed.Mutable as MV
-
 import Common
+import Control.Monad.Trans.Except
 import Data.Bits
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -84,7 +83,6 @@ appendBytes assembler bytes
 appendInst :: Assembler -> Inst -> IO Assembler
 appendInst assembler inst' = assembler `appendBytes` (instToBytes inst')
 
--- TODO: Reduce copying here by using mutable vectors
 snocList :: (V.Unbox a) => Vector a -> [a] -> IO (Vector a)
 snocList xs v = return $ foldl V.snoc xs v
 
@@ -174,16 +172,13 @@ solveSymbol assembler unsolved' = case Map.lookup (name unsolved') (symbols asse
 
 solveAllSymbols :: Assembler -> IO (Either AssembleError Assembler)
 solveAllSymbols assembler@Assembler {unsolved = []} = return $ Right assembler
-solveAllSymbols assembler@Assembler {unsolved = (x : ys)} = do
-  solveResult <- solveSymbol assembler x
-  case solveResult of
-    Right assembler' -> solveAllSymbols assembler' {unsolved = ys}
-    Left e -> return $ Left e
+solveAllSymbols assembler@Assembler {unsolved = (x : ys)} = runExceptT $ do
+  assembler' <- ExceptT $ solveSymbol assembler x
+  ExceptT $ solveAllSymbols assembler' {unsolved = ys}
 
 finish :: Assembler -> IO (Either AssembleError AssembledProgram)
 finish assembler = do
-  solveResult <- solveAllSymbols assembler
-  return $ fmap (\assembler' -> AssembledProgram (bytesData assembler') (bytesText assembler')) solveResult
+  fmap (\assembler' -> AssembledProgram (bytesData assembler') (bytesText assembler')) <$> solveAllSymbols assembler
 
 emitAsStr :: AssembledProgram -> String
 emitAsStr assembled =
@@ -191,26 +186,10 @@ emitAsStr assembled =
     ++ "\";\n"
     ++ (emitAsStrInner (dataSegment assembled) "static const u8 data_segment[] = \"")
     ++ "\";\n"
-    ++ "u8 vmem_text[VMEM_SEG_SIZE] = {0};\n"
-    ++ "u8 vmem_data[VMEM_SEG_SIZE] = {0};\n"
-    ++ "u8 vmem_stack[VMEM_SEG_SIZE] = {0};\n"
-    ++ "memcpy(vmem_text, text_segment, sizeof(text_segment));\n"
-    ++ "memcpy(vmem_data, data_segment, sizeof(data_segment));\n"
   where
     emitAsStrInner :: V.Vector Word8 -> String -> String
     emitAsStrInner bytes' s = foldl (++) s (map emitByteAsChar (V.toList bytes'))
     emitByteAsChar :: Word8 -> String
-    emitByteAsChar 0 = "\\0"
-    emitByteAsChar 7 = "\\a"
-    emitByteAsChar 8 = "\\b"
-    emitByteAsChar 9 = "\\t"
-    emitByteAsChar 10 = "\\n"
-    emitByteAsChar 11 = "\\v"
-    emitByteAsChar 12 = "\\f"
-    emitByteAsChar 13 = "\\r"
-    emitByteAsChar 34 = "\\\""
-    emitByteAsChar 92 = "\\\""
-    emitByteAsChar x | x >= 32 && x <= 126 && not (x >= 48 && x <= 57) && not (x >= 65 && x <= 70) && not (x >= 97 && x <= 102) = (printf "%c" x)
     emitByteAsChar x = (printf "\\x%02X" x)
 
 emitAsDecArr :: AssembledProgram -> String
@@ -219,14 +198,9 @@ emitAsDecArr assembled =
     ++ "};\n"
     ++ (emitAsDecArrInner (dataSegment assembled) "static const u8 data_segment[] = {")
     ++ "};\n"
-    ++ "u8 vmem_text[VMEM_SEG_SIZE] = {0};\n"
-    ++ "u8 vmem_data[VMEM_SEG_SIZE] = {0};\n"
-    ++ "u8 vmem_stack[VMEM_SEG_SIZE] = {0};\n"
-    ++ "memcpy(vmem_text, text_segment, sizeof(text_segment));\n"
-    ++ "memcpy(vmem_data, data_segment, sizeof(data_segment));\n"
   where
     emitAsDecArrInner :: V.Vector Word8 -> String -> String
-    emitAsDecArrInner bytes' s = foldl (++) s (map (\x -> show x ++ ",") (V.toList bytes'))
+    emitAsDecArrInner bytes' s = foldl (++) s $ map ((++ ",") . show) (V.toList bytes')
 
 emitAsHexArr :: AssembledProgram -> String
 emitAsHexArr assembled =
@@ -234,14 +208,9 @@ emitAsHexArr assembled =
     ++ "};\n"
     ++ (emitAsHexArrInner (dataSegment assembled) "static const u8 data_segment[] = {")
     ++ "};\n"
-    ++ "u8 vmem_text[VMEM_SEG_SIZE] = {0};\n"
-    ++ "u8 vmem_data[VMEM_SEG_SIZE] = {0};\n"
-    ++ "u8 vmem_stack[VMEM_SEG_SIZE] = {0};\n"
-    ++ "memcpy(vmem_text, text_segment, sizeof(text_segment));\n"
-    ++ "memcpy(vmem_data, data_segment, sizeof(data_segment));\n"
   where
     emitAsHexArrInner :: V.Vector Word8 -> String -> String
-    emitAsHexArrInner bytes' s = foldl (++) s (map (\x -> (printf "0x%02X," x)) (V.toList bytes'))
+    emitAsHexArrInner bytes' s = foldl (++) s $ map ("0x%02X," `printf`) (V.toList bytes')
 
 emit :: AssembledProgram -> EmitMode -> String
 emit assembled ArrDec = emitAsDecArr assembled

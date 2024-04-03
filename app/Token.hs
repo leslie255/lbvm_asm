@@ -77,8 +77,7 @@ parseStringLiteral s' = parseStringLiteralInner s' ""
 
 parseNumber :: String -> Either LexerError Word64
 parseNumber ('-' : s) = do
-  n <- parseNumber s
-  Right $ -n
+  (0 -) <$> parseNumber s
 parseNumber ('0' : 'x' : s) = parseHexNumber s 0
 parseNumber ('0' : 'd' : s) | all isNumber s = Right $ read s
 parseNumber ('0' : 'o' : s) = parseOctNumber s 0
